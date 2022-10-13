@@ -1,0 +1,6 @@
+Temperature range
+Humidty range
+
+scale up electrcitiy prices 100 kw (commercial)
+
+Create chart of efficiency instead of average
