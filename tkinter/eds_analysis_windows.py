@@ -253,15 +253,13 @@ class EDS:
             #Concact all dataframes into one
             
             edspanelframe = pd.concat([edspanelframe_1_pout, edspanelframe_2_pout, edspanelframe_3_pout, edspanelframe_4_pout, edspanelframe_5_pout], axis=1, ignore_index=True)
-            
             #Zscore outlier remover
-            edspanelframe = edspanelframe[np.abs((edspanelframe - edspanelframe.mean())/edspanelframe.std(ddof=0)) < 3]
-            
-            
+            edspanelframe_zscore = edspanelframe[np.abs((edspanelframe - edspanelframe.mean())/edspanelframe.std(ddof=0)) < 3]
+
             #Calculate mean of each column
-            edspanelframe_avg = edspanelframe.mean(axis='index').tolist()
+            edspanelframe_avg = edspanelframe_zscore.mean(axis='index').tolist()
             
-            perc_inc = []
+            perc_inc_avg = []
             kwh_dif = 0
             p_generate = 0
 
@@ -274,13 +272,13 @@ class EDS:
                 #Lets say on average that the watt measured is generated at that rate for at least 3 hours
                 kwh_dif += ((((avg_post-avg_pre)/1000)*800*3))
                 p_generate += ((((avg_post-avg_pre)/1000)*800))
-                perc_inc.append(inc)
+                perc_inc_avg.append(inc)
 
             kwh_money_saved = ((kwh_dif)*21.85)
             message = "\n"
             counter = 1
             
-            for perc in perc_inc:
+            for perc in perc_inc_avg:
                 perc_str = "EDS-PV"+(str(counter))+" efficiency = "+str(format(perc, '.2f'))+"%\n"
                 message += perc_str
                 counter += 1
@@ -300,8 +298,6 @@ class EDS:
             #https://docs.google.com/spreadsheets/d/1v-2COFxeCa61EBgZ4hPeFGDcaJuCKz0N/edit#gid=493027415
 
             message += "\n Equivalent Water usage per KW = "+str(format(h20, '.2f'))+" Gallons \n Money saved 8¢ per gallon = $"+str(format(h20_money_saved, '.2f'))+"\n"
-            
-            #Carbon footprint
 
             #Temperature and Humidity average
 
@@ -314,6 +310,13 @@ class EDS:
 
             # display the message
             cmp_contents = customtkinter.CTkLabel(self.cmp_window, text=message,text_font=("Arial", 14)).pack()
+
+            #Graph chart
+            for edsname in edspanels:
+                self.graph_pout_diff(edsname)
+            plt.show()
+            
+            
             
             
             
@@ -759,6 +762,37 @@ class EDS:
         plt.legend(loc='upper right')
 
         plt.show()
+    def graph_pout_diff(self, edsname):
+        data = self.df_load()
+        
+        #set ggplot style
+        plt.style.use('ggplot')
+
+        #plot data
+        fig, ax = plt.subplots(figsize=(7,4))
+        
+        data_diff = data.loc[[edsname]]
+        data_diff.set_index('Date', inplace=True)
+        data_diff = data_diff[['Pout_Before(W)','Pout_After(W)']].ffill()
+        x = list(range(0,len(data_diff)))
+        y = (data_diff['Pout_After(W)']-data_diff['Pout_Before(W)']).to_numpy()
+        m  = np.polyfit(x, y, 1)
+        poly1d_fn = np.poly1d(m)
+        ax.plot(data_diff.index, y, 'o-', data_diff.index, poly1d_fn(x), '--k', label="Difference "+str(edsname))
+            
+        #set date as index
+        data.set_index('Date',inplace=True)
+            
+        #Set x axis with date
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d %y'))
+        
+        ax.set_title('Preformance Ratio Difference graph'+str(edsname))
+        ax.set_ylabel('Watts')
+        ax.set_xlabel('Date')
+        plt.legend(loc='upper right')
+
+        #plt.show()
+
         
     def df_load(self):
         
